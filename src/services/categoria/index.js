@@ -45,25 +45,23 @@ router.post('/', (req,res) => {
     res.status(400).send(joiValidation.error.details)
     return
   }
-  //? Criação da query
   const sql = `INSERT INTO categoria (titulo) VALUES ($titulo);`
-  //? Definição dos binds da query (para evitar sql injection)
   const bind = {
-    "$titulo": req.body.titulo.toLowerCase()
+    "titulo": req.body.titulo.toLowerCase()
   }
-  //? Execução da query
-  db.run(sql, bind, (err)=>{
-    //? Tratamento de erros
-    if(err){
-      if(err.errno == 19){
-        res.status(400).send({"message": "Categoria já cadastrada!"})
-      } else {
-        res.status(500).send({"message": "Falha ao cadastrar categoria!"})
-      }
-    } else { //?Retorno de sucesso
-      res.status(200).send({"message": "Categoria cadastrada com sucesso!"})
+
+  const stmtCategoria = db.prepare(sql)
+  try {
+    stmtCategoria.run(bind)
+    res.status(200).send({"message": "Categoria cadastrada com sucesso!"})
+  }
+  catch (e) {
+    if(e.code === "SQLITE_CONSTRAINT_UNIQUE") {
+      res.status(400).send({"message": "Categoria já cadastrada!"})
+    } else {
+      res.status(500).send({"message": "Falha ao cadastrar categoria!"})
     }
-  })
+  }
 })
 router.put('/:id', (req, res) => {
   const joiParamsValidation = idSchema.validate(req.params)

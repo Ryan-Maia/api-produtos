@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS registro (
   valor NUMERIC NOT NULL,
   id_pessoa INTEGER NOT NULL,
   id_categoria INTEGER NOT NULL,
+  data_registro VARCHAR(255) NOT NULL,
   FOREIGN KEY (id_pessoa) REFERENCES pessoa(id),
   FOREIGN KEY (id_categoria) REFERENCES categoria(id)
 );
