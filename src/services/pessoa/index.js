@@ -16,13 +16,14 @@ const pessoaSchema = Joi.object({
 })
 
 router.get('/', (req,res) => {
-  db.all("SELECT id, nome, usuario FROM pessoa", function (err, rows) {
-    if(err) {
-      res.status(500).send({"message": "Falha ao buscar pessoas!"})
-      return
-    }
+  const stmtPessoa = db.prepare("SELECT id, nome, usuario FROM pessoa")
+  try{
+    const rows = stmtPessoa.all()
     res.status(200).send(rows)
-  })
+
+  }catch(e){
+    res.status(500).send({"message": "Falha ao buscar pessoas!"})
+  }
 })
 router.get('/:id', (req,res) => {
   const validationIdSchema = idSchema.validate(req.params)
@@ -31,17 +32,19 @@ router.get('/:id', (req,res) => {
     return
   }
   const sql = "SELECT id, nome, usuario FROM pessoa WHERE id = $id"
+  
   const bind = {
-    "$id": req.params.id
+    "id": req.params.id
   }
-  db.get(sql,bind, function (err, row) {
-    if(err) {
-      res.status(500).send({"message": `Falha ao buscar pessoa de id [${req.params.id}]!`})
-      return
-    }
-    if(!row) res.status(200).send([])
+
+  const stmtPessoa = db.prepare(sql)
+  try{
+    const row = stmtPessoa.get(bind)
     res.status(200).send(row)
-  })
+  }
+  catch(e) {
+    res.status(500).send({"message": `Falha ao buscar pessoa de id [${req.params.id}]!`})
+  }
 })
 router.post('/', (req,res) => {
   const joiBodyValidation = pessoaSchema.validate(req.body,{ abortEarly: false })
@@ -49,27 +52,24 @@ router.post('/', (req,res) => {
     res.status(400).send(joiBodyValidation.error.details)
     return
   }
-  //? Criação da query
-  const sql = `INSERT INTO pessoa (nome,usuario,senha) VALUES ($nome, $usuario, $senha);`
-  //? Definição dos binds da query (para evitar sql injection)
+  const sql = `INSERT INTO pessoa VALUES (NULL, $nome, $usuario, $senha);`
   const bind = {
-    "$nome": req.body.nome,
-    "$usuario": req.body.usuario,
-    "$senha": req.body.senha
+    "nome": req.body.nome,
+    "usuario": req.body.usuario,
+    "senha": req.body.senha
   }
-  //? Execução da query
-  db.run(sql, bind, (err)=>{
-    //? Tratamento de erros
-    if(err){
-      if(err.errno == 19){
-        res.status(400).send({"message": "Usuário já utilizado!"})
-      } else {
-        res.status(500).send({"message": "Falha ao cadastrar pessoa!"})
-      }
-    } else { //?Retorno de sucesso
-      res.status(200).send({"message": "Cadastrado com sucesso!"})
+
+  const stmtPessoa = db.prepare(sql)
+  try{
+    stmtPessoa.run(bind)
+    res.status(200).send({"message": "Cadastrado com sucesso!"})
+  } catch (e) {
+    if(e.code === "SQLITE_CONSTRAINT_UNIQUE") {
+      res.status(400).send({"message": "Usuário já utilizado!"})
+    } else {
+      res.status(500).send({"message": "Falha ao cadastrar pessoa!"})
     }
-  })
+  }
 })
 router.put('/:id', (req, res) => {
   const bodySchema = Joi.object({
@@ -91,23 +91,24 @@ router.put('/:id', (req, res) => {
 
   const sql = "UPDATE pessoa SET nome = $nome, usuario = $usuario WHERE id = $id"
   const bind = {
-    "$nome": req.body.nome,
-    "$usuario": req.body.usuario,
-    "$id": req.params.id
+    "nome": req.body.nome,
+    "usuario": req.body.usuario,
+    "id": req.params.id
   }
 
-  db.run(sql, bind , function (err, row) {
-    console.log('🚀 ~ file: index.js ~ line 86 ~ err', err, row);
-    if(err) {
-      if(err.errno == 19) {
-        res.status(400).send({"message": `Usuário '${req.body.usuario}' já em uso!`})
-      }else{
-        res.status(500).send({"message": "Não foi possível atualizar o usuário!"})
-      }
+  const stmtPessoa = db.prepare(sql)
+
+  try{
+    stmtPessoa.run(bind)
+    res.status(200).send({"message": "Pessoa atualizada com sucesso!"})
+  } catch (e) {
+    if(e.code === "SQLITE_CONSTRAINT_UNIQUE") {
+      res.status(400).send({"message": `Usuário '${req.body.usuario}' já em uso!`})
     } else {
-      res.status(200).send({"message": "Usuário atualizado com sucesso!"})
+      res.status(500).send({"message": "Não foi possível atualizar a pessoa!"})
     }
-  })
+
+  }
 })
 router.patch('/:id', (req, res) => {
   const bodySchema = Joi.object({
@@ -128,29 +129,30 @@ router.patch('/:id', (req, res) => {
 
   let sql = "UPDATE pessoa"
   let bind = {
-    "$id": req.params.id
+    "id": req.params.id
   }
-  Object.keys(req.body).forEach((e) => {
-    sql += ` SET ${e} = $${e},`
-    bind[`$${e}`] = req.body[e]
-  })
+  Object.keys(req.body).forEach((e, index) => {
+    sql += (index === 0) ? ` SET ${e} = $${e},` : ` ${e} = $${e},`
 
+    bind[`${e}`] = req.body[e]
+  })
+  //? Remoção da última vírgula
   sql = sql.substring(0, sql.length - 1)
 
   sql += " WHERE id = $id"
 
-  db.run(sql, bind , function (err) {
-    if(err) {
-      if(err.errno == 19) {
-        res.status(400).send({"message": `Usuário '${req.body.usuario}' já em uso!`})
-      }else{
-        res.status(500).send({"message": "Não foi possível atualizar o usuário!"})
-      }
-    } else {
-      res.status(200).send({"message": "Usuário atualizado com sucesso!"})
-    }
-  })
+  const stmtPessoa = db.prepare(sql)
 
+  try{
+    stmtPessoa.run(bind)
+    res.status(200).send({"message": "Usuário atualizado com sucesso!"})
+  } catch (e) {
+    if(e.code === "SQLITE_CONSTRAINT_UNIQUE") {
+      res.status(400).send({"message": `Usuário '${req.body.usuario}' já em uso!`})
+    } else {
+      res.status(500).send({"message": "Não foi possível atualizar o usuário!"})
+    }
+  }
 })
 router.delete('/:id', (req, res) => {
   const validationIdSchema = idSchema.validate(req.params)
@@ -160,16 +162,17 @@ router.delete('/:id', (req, res) => {
   }
   const sql = "DELETE FROM pessoa WHERE id = $id"
   const bind = {
-    "$id": req.params.id
+    "id": req.params.id
   }
-  //Todo: Implementar verificação se o usuáraio de id x existe antes de
-  db.run(sql,bind, function (err, row) {
-    if(err) {
-      res.status(500).send({"message": `Falha ao deletar pessoa de id [${req.params.id}]!`})
-      return
-    }
+
+  const stmtPessoa = db.prepare(sql)
+
+  try{
+    stmtPessoa.run(bind)
     res.status(200).send({"message": `Pessoa de id [${req.params.id}] removida com sucesso!`})
-  })
+  } catch (e) {
+    res.status(500).send({"message": `Falha ao deletar pessoa de id [${req.params.id}]!`})
+  }
 })
 
 
