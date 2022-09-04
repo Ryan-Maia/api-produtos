@@ -12,13 +12,13 @@ const idSchema = Joi.object({
 })
 
 router.get('/', (req,res) => {
-  db.all("SELECT id, titulo FROM categoria", function (err, rows) {
-    if(err) {
-      res.status(500).send({"message": "Falha ao buscar categorias!"})
-      return
-    }
+  const stmtCategoria = db.prepare("SELECT id, titulo FROM categoria")
+  try{
+    const rows = stmtCategoria.all()
     res.status(200).send(rows)
-  })
+  } catch (e) {
+    res.status(500).send({"message": "Falha ao buscar categorias!"})
+  }
 })
 router.get('/:id', (req,res) => {
   const joiParamsValidation = idSchema.validate(req.params)
@@ -28,16 +28,17 @@ router.get('/:id', (req,res) => {
   }
   const sql = "SELECT titulo FROM categoria WHERE id = $id"
   const bind = {
-    "$id": req.params.id
+    "id": req.params.id
   }
-  db.get(sql,bind, function (err, row) {
-    if(err) {
-      res.status(500).send({"message": `Falha ao buscar categoria de id [${req.params.id}]!`})
-      return
-    }
-    if(!row) res.status(200).send([])
+
+  const stmtCategoria = db.prepare(sql)
+
+  try{
+    const row = stmtCategoria.get(bind)
     res.status(200).send(row)
-  })
+  } catch (e) {
+    res.status(500).send({"message": `Falha ao buscar categoria de id [${req.params.id}]!`})
+  }
 })
 router.post('/', (req,res) => {
   const joiValidation = categoriaSchema.validate(req.body)
@@ -78,21 +79,22 @@ router.put('/:id', (req, res) => {
 
   const sql = "UPDATE categoria SET titulo = $titulo WHERE id = $id"
   const bind = {
-    "$titulo": req.body.titulo.toLowerCase(),
-    "$id": req.params.id
+    "titulo": req.body.titulo.toLowerCase(),
+    "id": req.params.id
   }
 
-  db.run(sql, bind , function (err, row) {
-    if(err) {
-      if(err.errno == 19) {
-        res.status(400).send({"message": `Categoria '${req.body.titulo}' já em uso!`})
-      }else{
-        res.status(500).send({"message": "Não foi possível atualizar a categoria!"})
-      }
+  const stmtCategoria = db.prepare(sql)
+  try {
+    stmtCategoria.run(bind)
+    res.status(200).send({"message": "Categoria atualizada com sucesso!"})
+  }
+  catch (e) {
+    if(e.code === "SQLITE_CONSTRAINT_UNIQUE") {
+      res.status(400).send({"message": "Categoria já em uso!"})
     } else {
-      res.status(200).send({"message": "Categoria atualizada com sucesso!"})
+      res.status(500).send({"message": "Falha ao atualizada categoria!"})
     }
-  })
+  }
 })
 router.delete('/:id', (req, res) => {
   const joiParamsValidation = idSchema.validate(req.params)
@@ -102,16 +104,16 @@ router.delete('/:id', (req, res) => {
   }
   const sql = "DELETE FROM categoria WHERE id = $id"
   const bind = {
-    "$id": req.params.id
+    "id": req.params.id
   }
-  //Todo: Implementar verificação se o usuáraio de id x existe antes de
-  db.run(sql,bind, function (err, row) {
-    if(err) {
-      res.status(500).send({"message": `Falha ao deletar categoria de id [${req.params.id}]!`})
-      return
-    }
+  const stmtCategoria = db.prepare(sql)
+
+  try{
+    stmtCategoria.run(bind)
     res.status(200).send({"message": `Categoria de id [${req.params.id}] removida com sucesso!`})
-  })
+  } catch (e) {
+    res.status(500).send({"message": `Falha ao deletar categoria de id [${req.params.id}]!`})
+  }
 })
 
 
