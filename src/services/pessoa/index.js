@@ -155,6 +155,7 @@ router.patch('/:id', (req, res) => {
   }
 })
 router.delete('/:id', (req, res) => {
+  //todo: 1. Verificar se o id informado existe antes de executar a exclusão 2. Informar caso a pessoa em questão esteja em uso por algum registro
   const validationIdSchema = idSchema.validate(req.params)
   if(validationIdSchema.error){
     res.status(400).send(validationIdSchema.error.details)

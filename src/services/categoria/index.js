@@ -97,6 +97,7 @@ router.put('/:id', (req, res) => {
   }
 })
 router.delete('/:id', (req, res) => {
+  //todo: 1. Verificar se o id informado existe antes de executar a exclusão 2. Informar caso a categoria em questão esteja em uso por algum registro
   const joiParamsValidation = idSchema.validate(req.params)
   if(joiParamsValidation.error){
     res.status(400).send(joiParamsValidation.error.details)

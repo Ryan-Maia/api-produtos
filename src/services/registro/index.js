@@ -163,6 +163,7 @@ router.patch('/:id', (req, res) => {
   res.status(501).send()
 })
 router.delete('/:id', (req, res) => {
+  //todo: 1. Verificar se o id informado existe antes de executar a exclusão
   const validationIdSchema = idSchema.validate(req.params)
   if(validationIdSchema.error){
     res.status(400).send(validationIdSchema.error.details)
