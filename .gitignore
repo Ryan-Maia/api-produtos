@@ -1,0 +1,4 @@
+node_modules
+database.sqlite
+yarn.lock
+package-lock.json
