@@ -15,6 +15,8 @@ const RotasPessoa = require("./src/services/pessoa")
 const RotasCategoria = require("./src/services/categoria")
 const RotasRegistro = require("./src/services/registro")
 
+app.get("/", (req, res) => {res.send("Oi")})
+
 app.use("/pessoa", RotasPessoa)
 app.use("/categoria", RotasCategoria)
 app.use("/registro", RotasRegistro)
