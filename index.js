@@ -19,8 +19,8 @@ app.use("/pessoa", RotasPessoa)
 app.use("/categoria", RotasCategoria)
 app.use("/registro", RotasRegistro)
 
+const PORT = process.env.PORT || 3030;
 
-
-app.listen(3030,()=>{
+app.listen(PORT, ()=>{
   console.log("Servidor rodando na porta 3030!")
 })
